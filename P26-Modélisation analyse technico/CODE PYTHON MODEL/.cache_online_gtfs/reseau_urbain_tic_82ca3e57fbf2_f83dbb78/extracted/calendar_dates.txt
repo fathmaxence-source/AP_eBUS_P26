@@ -1,0 +1,15 @@
+﻿service_id,date,exception_type
+AutoGen_5,20260407,2
+AutoGen_5,20260408,2
+AutoGen_5,20260409,2
+AutoGen_5,20260410,2
+AutoGen_5,20260411,2
+AutoGen_2,20260407,2
+AutoGen_2,20260408,2
+AutoGen_2,20260409,2
+AutoGen_2,20260410,2
+AutoGen_7,20260407,2
+AutoGen_7,20260408,2
+AutoGen_7,20260409,2
+AutoGen_4,20260407,2
+AutoGen_3,20260408,2

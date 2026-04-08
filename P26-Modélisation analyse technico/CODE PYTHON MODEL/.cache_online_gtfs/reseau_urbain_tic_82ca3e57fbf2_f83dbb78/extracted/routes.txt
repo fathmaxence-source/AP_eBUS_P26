@@ -1,0 +1,16 @@
+﻿route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
+1,60OM,"1","Gare - Hôpital",,3,,FFED00,000000
+2,60OM,"2","Clairoix Centre - Centre Comercial Jaux-Venette",,3,,009FE3,000000
+3,60OM,"3","Ferdinand De Lesseps - Bellicart",,3,,E30613,000000
+4,60OM,"4","Gare - Bois de Plaisance",,3,,6C4796,000000
+5,60OM,"5","Gare - Hôpital",,3,,009641,000000
+6,60OM,"6","Gare - Bois de Plaisance",,3,,E3A417,000000
+D1,60OM,"D1","Multiplexe - Bellicart",,3,,F58220,000000
+D2,60OM,"D2","Multiplexe - Bellicart",,3,,009C94,000000
+Sco BACb,60OM,"Sco BACb","Collège Ferdinand Bac - Choisy au Bac",,3,,808080,FFFFFF
+Sco DEB4b,60OM,"Sco DEB4b","Collège Claude Debussy - Margny Lès Compiègnes",,3,,808080,FFFFFF
+Sco DEN b,60OM,"Sco DEN b","Collège Gaëtan Denain",,3,,808080,FFFFFF
+Sco LYC b,60OM,"Sco LYC b","Lycées de Compiègne",,3,,808080,FFFFFF
+Sco MAL b,60OM,"Sco MAL b","Collège André MALRAUX",,3,,808080,FFFFFF
+Sco MON b,60OM,"Sco MON b","Collège Jacques Monod",,3,,808080,FFFFFF
+Navette HMb,60OM,"Navette HMb","Navette Hauts de Margny BUS",,3,,808000,FFFFFF
