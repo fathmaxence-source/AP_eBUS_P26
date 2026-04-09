@@ -1,0 +1,99 @@
+{
+  "route": {
+    "route_id": "1",
+    "agency_id": "60OM",
+    "route_short_name": "1",
+    "route_long_name": "Gare - Hôpital",
+    "route_desc": "",
+    "route_type": "3",
+    "route_url": "",
+    "route_color": "FFED00",
+    "route_text_color": "000000"
+  },
+  "route_name": "Gare - Hôpital",
+  "trip_summaries": [
+    {
+      "trip_id": "21001",
+      "route_id": "1",
+      "headsign": "Compiègne - Hôpital",
+      "direction_id": "0",
+      "stop_names": [
+        "Gare-Jeanne d'Arc",
+        "Solférino",
+        "Magenta",
+        "Jacques Monod",
+        "Saint-Lazare",
+        "Bournonville",
+        "Bournonville 2",
+        "Carrefour Napoléon",
+        "Etats-Unis",
+        "La Venerie",
+        "Carnot",
+        "Réservoirs",
+        "Victoire",
+        "Piscine",
+        "Jean l'Huillier",
+        "Picardie",
+        "Abbaye",
+        "Royallieu",
+        "Stalingrad",
+        "Vivier Corax",
+        "Bernard Morançais",
+        "Guy Deniélou",
+        "A. Malraux",
+        "Blaise Pascal",
+        "Mercières (sensAbis L1)",
+        "Chemin d'Armancourt",
+        "Hôpital"
+      ],
+      "segment_count": 2
+    }
+  ],
+  "segment_count": 2,
+  "segments": [
+    {
+      "name": "Gare-Jeanne d'Arc -> Solférino",
+      "distance_m": 277.0,
+      "time_s": 120.0,
+      "speed_m_s": 2.308333333333333,
+      "speed_km_h": 8.309999999999999,
+      "start_stop_id": "CGAREJ",
+      "end_stop_id": "CSOLF1",
+      "start_stop_name": "Gare-Jeanne d'Arc",
+      "end_stop_name": "Solférino",
+      "start_lat": 49.421567,
+      "start_lon": 2.822795,
+      "end_lat": 49.41945,
+      "end_lon": 2.82377,
+      "trip_id": "21001",
+      "route_id": "1",
+      "trip_headsign": "Compiègne - Hôpital",
+      "direction_id": "0"
+    },
+    {
+      "name": "Solférino -> Magenta",
+      "distance_m": 500.0,
+      "time_s": 180.0,
+      "speed_m_s": 2.7777777777777777,
+      "speed_km_h": 10.0,
+      "start_stop_id": "CSOLF1",
+      "end_stop_id": "CMAGE1",
+      "start_stop_name": "Solférino",
+      "end_stop_name": "Magenta",
+      "start_lat": 49.41945,
+      "start_lon": 2.82377,
+      "end_lat": 49.416266,
+      "end_lon": 2.827138,
+      "trip_id": "21001",
+      "route_id": "1",
+      "trip_headsign": "Compiègne - Hôpital",
+      "direction_id": "0"
+    }
+  ],
+  "bounds": {
+    "min_lat": 49.3868293762207,
+    "max_lat": 49.4220008850098,
+    "min_lon": 2.78681993484497,
+    "max_lon": 2.83810997009277
+  }
+}

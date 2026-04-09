@@ -15,7 +15,7 @@ import pandas as pd
 
 from bus_models import (
     DEFAULT_BUS_MODEL_ID,
-    # build_bus_models_reference_table,
+    build_bus_models_reference_table,
     get_bus_model,
     list_bus_models,
 )

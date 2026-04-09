@@ -1,0 +1,23 @@
+version: 1
+project:
+  id: 47aab78d-2f7d-4b53-a60b-05c36e89df4c
+  title: Outil d'aide à la décision pour l'analyse énergétique de lignes de bus électriques
+  description: Documentation scientifique et fonctionnelle de l'outil d'analyse énergétique de lignes de bus électriques.
+  keywords:
+    - bus électrique
+    - GTFS
+    - énergie
+    - altimétrie
+    - aide à la décision
+  authors:
+    - name: Projet AP Bus électrique
+  toc:
+    - file: introduction.md
+    - file: guide_utilisation.md
+    - file: architecture_logicielle.md
+    - file: donnees_et_flux.md
+    - file: modele_energetique.md
+    - file: equations_reference.md
+    - file: validation_et_limites.md
+site:
+  template: book-theme

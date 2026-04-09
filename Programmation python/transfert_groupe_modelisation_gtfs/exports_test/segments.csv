@@ -1,0 +1,3 @@
+name,distance_m,time_s,speed_m_s,speed_km_h,start_stop_id,end_stop_id,start_stop_name,end_stop_name,start_lat,start_lon,end_lat,end_lon,trip_id,route_id,trip_headsign,direction_id
+Gare-Jeanne d'Arc -> Solférino,277.0,120.0,2.308333333333333,8.309999999999999,CGAREJ,CSOLF1,Gare-Jeanne d'Arc,Solférino,49.421567,2.822795,49.41945,2.82377,21001,1,Compiègne - Hôpital,0
+Solférino -> Magenta,500.0,180.0,2.7777777777777777,10.0,CSOLF1,CMAGE1,Solférino,Magenta,49.41945,2.82377,49.416266,2.827138,21001,1,Compiègne - Hôpital,0

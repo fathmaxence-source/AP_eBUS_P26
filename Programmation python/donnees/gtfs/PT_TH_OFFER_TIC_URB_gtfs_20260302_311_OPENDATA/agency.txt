@@ -1,0 +1,2 @@
+﻿agency_id,agency_name,agency_url,agency_timezone,agency_lang,agency_phone,agency_fare_url,agency_email
+60OM,"TIC Urbain - AR de Compiègne",https://www.oise-mobilite.fr/,Europe/Paris,fr,+33970150150,,

@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+env/
+ENV/
+
+# Caches locaux
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Exports regenerables
+exports/
+
+# Grosses donnees locales a ne pas envoyer sur GitHub
+donnees/altimetrie/
+
+# Documentation generee ou environnement local Jupyter Book
+documentation/.jb_node/
+documentation/jupyter_book_outil_bus/_build/
+documentation/archives_tests_jb/
+
+# Dossier local de tri / nettoyage si vous le recreez
+a enlever/
+
+# Fichiers systeme
+Thumbs.db
+Desktop.ini
+.DS_Store
