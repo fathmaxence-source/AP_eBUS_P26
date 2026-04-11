@@ -25,7 +25,7 @@ from route_soc import build_battery_alert_message, route_soc
 
 
 SCENARIO = 1
-PTERMINAL = 150.0
+PTERMINAL = 150
 BUS_MODEL_ID = DEFAULT_BUS_MODEL_ID
 
 GTFS_CONFIG = GTFSBusConfig(
