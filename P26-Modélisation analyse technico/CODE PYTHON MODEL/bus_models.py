@@ -97,6 +97,22 @@ BUS_MODELS: dict[str, BusModel] = {
             "https://www.solarisbus.com/public/assets/Biuro_prasowe/2023_05_11_UITP_zapro/Technical_details_Solaris_Urbino_12_electric.pdf",
         ),
     ),
+    "volvo_7900_electric": BusModel(
+        model_id="volvo_7900_electric",
+        display_name="Volvo 7900 Electric",
+        manufacturer="Volvo Buses",
+        popularity_scope="Europe",
+        popularity_note="Bus electrique 12m de Volvo avec batterie de 200 kWh, tres repandu en Scandinavie et Europe du Nord.",
+        length_m=12.000,
+        width_m=2.550,
+        height_m=3.300,
+        reference_mass_kg=19_000.0,
+        battery_capacity_kwh=200.0,
+        traction_power_kw=160.0,
+        source_urls=(
+            "https://www.volvobuses.com/en/our-offering/buses/volvo-7900-electric.html",
+        ),
+    ),
 }
 
 
