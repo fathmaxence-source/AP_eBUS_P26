@@ -1,19 +1,19 @@
 from __future__ import annotations
-
+ 
 from pathlib import Path
-
+ 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
+ 
 from p_charge import p_charge
-
-
+ 
+ 
 def _is_depot_trip_id(series: pd.Series) -> pd.Series:
     return series.fillna("").astype(str).str.startswith("DEPOT_")
-
-
+ 
+ 
 def _highlight_time_windows(
     ax: plt.Axes,
     rows: pd.DataFrame,
@@ -33,8 +33,8 @@ def _highlight_time_windows(
             label=label if first else None,
         )
         first = False
-
-
+ 
+ 
 def build_realtime_profile(tabl: pd.DataFrame) -> pd.DataFrame:
     profile = tabl.copy()
     profile["StartTimeHour"] = profile["TimeHour"] - pd.to_timedelta(profile["deltaT"], unit="s")
@@ -56,15 +56,15 @@ def build_realtime_profile(tabl: pd.DataFrame) -> pd.DataFrame:
     else:
         profile["IsDepotSegment"] = False
     return profile
-
-
+ 
+ 
 def compute_charge_window_hours(start_time: pd.Timestamp, end_time: pd.Timestamp) -> tuple[float, pd.Timestamp]:
     next_start_time = start_time + pd.Timedelta(days=1)
     while next_start_time <= end_time:
         next_start_time += pd.Timedelta(days=1)
     return (next_start_time - end_time).total_seconds() / 3600.0, next_start_time
-
-
+ 
+ 
 def build_full_day_profile(
     realtime_profile: pd.DataFrame,
     battery_capacity_kwh: float,
@@ -73,33 +73,43 @@ def build_full_day_profile(
 ) -> tuple[pd.DataFrame, dict[str, float | pd.Timestamp]]:
     service_profile = realtime_profile.copy()
     service_profile["Phase"] = "service"
-
+ 
     service_end_time = service_profile["TimeHour"].iloc[-1]
     soc_end_pct = float(service_profile["SoC"].iloc[-1])
     soc_end_fraction = soc_end_pct / 100.0
     charge_window_h, next_start_time = compute_charge_window_hours(service_start_time, service_end_time)
-    pcharge_kw = p_charge(soc_end_fraction, battery_capacity_kwh, charge_window_h, terminal_power_kw)
-
-    charge_times = pd.date_range(start=service_end_time, end=next_start_time, freq="min")
+ 
+    # On charge a pleine puissance terminale
+    pcharge_kw = terminal_power_kw
+    time_to_full_h = (1 - soc_end_fraction) * battery_capacity_kwh / pcharge_kw
+    actual_charge_end_time = service_end_time + pd.Timedelta(hours=time_to_full_h)
+ 
+    charge_times = pd.date_range(start=service_end_time, end=actual_charge_end_time, freq="min")
+    
     if len(charge_times) <= 1:
         metadata = {
             "charge_power_kw": pcharge_kw,
             "charge_window_h": charge_window_h,
             "service_end_time": service_end_time,
-            "next_start_time": next_start_time,
+            "next_start_time": actual_charge_end_time,
         }
         return service_profile, metadata
-
+ 
     charged_energy_kwh = np.zeros(len(charge_times))
     soc_values = np.zeros(len(charge_times))
     soc_values[0] = soc_end_pct
-
+ 
     energy_per_minute_kwh = pcharge_kw / 60.0
     for index in range(1, len(charge_times)):
         remaining_kwh = max(0.0, (100.0 - soc_values[index - 1]) / 100.0 * battery_capacity_kwh)
         charged_energy_kwh[index] = min(energy_per_minute_kwh, remaining_kwh)
         soc_values[index] = soc_values[index - 1] + (charged_energy_kwh[index] / battery_capacity_kwh) * 100.0
-
+    
+    # Tronquer au moment où SoC atteint 100 %
+    fully_charged_indices = np.where(soc_values >= 100.0)[0]
+    soc_values[-1] = 100.0
+    actual_charge_end_time = charge_times[-1]
+ 
     charge_profile = pd.DataFrame(
         {
             "TimeHour": charge_times,
@@ -124,17 +134,17 @@ def build_full_day_profile(
     charge_profile["NetBatteryEnergy_kWh"] = (
         charge_profile["CumulativeEnergyUsed_kWh"] - charge_profile["CumulativeEnergyCharged_kWh"]
     )
-
+ 
     full_day_profile = pd.concat([service_profile, charge_profile.iloc[1:]], ignore_index=True)
     metadata = {
         "charge_power_kw": pcharge_kw,
         "charge_window_h": charge_window_h,
         "service_end_time": service_end_time,
-        "next_start_time": next_start_time,
+        "next_start_time": actual_charge_end_time,
     }
     return full_day_profile, metadata
-
-
+ 
+ 
 def build_segment_summary(tabl: pd.DataFrame) -> pd.DataFrame:
     profile = build_realtime_profile(tabl)
     travel_rows = profile[profile["Distance"] > 0].copy()
@@ -149,7 +159,7 @@ def build_segment_summary(tabl: pd.DataFrame) -> pd.DataFrame:
         "depot_deadhead",
         "line_service",
     )
-
+ 
     columns = [
         "SegmentIndex",
         "Cycle",
@@ -185,8 +195,8 @@ def build_segment_summary(tabl: pd.DataFrame) -> pd.DataFrame:
             "Power_kW": "AveragePower_kW",
         }
     )
-
-
+ 
+ 
 def export_analysis_tables(
     realtime_profile: pd.DataFrame,
     segment_summary: pd.DataFrame,
@@ -198,13 +208,13 @@ def export_analysis_tables(
     realtime_profile.to_csv(realtime_path, index=False)
     segment_summary.to_csv(segments_path, index=False)
     return realtime_path, segments_path
-
-
+ 
+ 
 def _style_time_axis(ax: plt.Axes) -> None:
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
     ax.grid(True, alpha=0.3)
-
-
+ 
+ 
 def plot_power_over_time(
     full_day_profile: pd.DataFrame,
     route_name: str,
@@ -215,9 +225,10 @@ def plot_power_over_time(
     depot_color = (0.95, 0.55, 0.1)
     depot_span_color = (1.0, 0.85, 0.45)
     charge_color = (0.92, 0.92, 0.92)
-
+ 
+    plt.close("bus_power_over_time")
     fig, ax = plt.subplots(figsize=(15, 6), num="bus_power_over_time")
-
+ 
     _highlight_time_windows(
         ax,
         depot_rows,
@@ -227,7 +238,7 @@ def plot_power_over_time(
         alpha=0.25,
         label="Trajet depot",
     )
-
+ 
     charge_rows = full_day_profile[full_day_profile["Phase"] == "depot_charge"]
     if not charge_rows.empty:
         ax.axvspan(
@@ -237,7 +248,7 @@ def plot_power_over_time(
             alpha=0.6,
             label="Recharge depot",
         )
-
+ 
     ax.plot(
         full_day_profile["TimeHour"],
         full_day_profile["NetPower_kW"],
@@ -259,25 +270,26 @@ def plot_power_over_time(
     ax.set_title(f"Puissance en fonction du temps - {route_name}")
     ax.legend(loc="best")
     _style_time_axis(ax)
-
+ 
     fig.tight_layout()
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(output_path, dpi=160, bbox_inches="tight")
-
-
+ 
+ 
 def plot_soc_over_time(
     full_day_profile: pd.DataFrame,
     route_name: str,
     output_path: Path | None = None,
 ) -> None:
+    plt.close("bus_soc_over_time")
     fig, ax = plt.subplots(figsize=(15, 6), num="bus_soc_over_time")
-
+ 
     soc_color = (0.15, 0.6, 0.25)
     depot_color = (0.95, 0.55, 0.1)
     depot_span_color = (1.0, 0.85, 0.45)
     charge_color = (0.92, 0.92, 0.92)
-
+ 
     depot_rows = full_day_profile[full_day_profile["IsDepotSegment"].fillna(False)]
     _highlight_time_windows(
         ax,
@@ -288,7 +300,7 @@ def plot_soc_over_time(
         alpha=0.25,
         label="Trajet depot",
     )
-
+ 
     charge_rows = full_day_profile[full_day_profile["Phase"] == "depot_charge"]
     if not charge_rows.empty:
         ax.axvspan(
@@ -298,7 +310,7 @@ def plot_soc_over_time(
             alpha=0.6,
             label="Recharge depot",
         )
-
+ 
     ax.plot(
         full_day_profile["TimeHour"],
         full_day_profile["SoC"],
@@ -321,20 +333,21 @@ def plot_soc_over_time(
     ax.legend(loc="best")
     ax.set_title(f"Etat de charge en fonction du temps - {route_name}")
     _style_time_axis(ax)
-
+ 
     fig.tight_layout()
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(output_path, dpi=160, bbox_inches="tight")
-
-
+ 
+ 
 def plot_energy_consumption_over_time(
     full_day_profile: pd.DataFrame,
     route_name: str,
     output_path: Path | None = None,
 ) -> None:
+    plt.close("bus_energy_consumption")
     fig, ax = plt.subplots(figsize=(15, 6), num="bus_energy_consumption")
-
+ 
     depot_rows = full_day_profile[full_day_profile["IsDepotSegment"].fillna(False)]
     _highlight_time_windows(
         ax,
@@ -345,7 +358,7 @@ def plot_energy_consumption_over_time(
         alpha=0.25,
         label="Trajet depot",
     )
-
+ 
     charge_rows = full_day_profile[full_day_profile["Phase"] == "depot_charge"]
     if not charge_rows.empty:
         ax.axvspan(
@@ -355,7 +368,7 @@ def plot_energy_consumption_over_time(
             alpha=0.6,
             label="Recharge depot",
         )
-
+ 
     ax.plot(
         full_day_profile["TimeHour"],
         full_day_profile["CumulativeEnergyUsed_kWh"],
@@ -363,19 +376,19 @@ def plot_energy_consumption_over_time(
         linewidth=1.8,
         label="Energie consommee cumulee",
     )
-
+ 
     ax.set_xlabel("Heure")
     ax.set_ylabel("Energie (kWh)")
     ax.set_title(f"Consommation energetique en fonction du temps - {route_name}")
     _style_time_axis(ax)
     ax.legend(loc="best")
-
+ 
     fig.tight_layout()
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(output_path, dpi=160, bbox_inches="tight")
-
-
+ 
+ 
 def plot_segment_dashboard(
     segment_summary: pd.DataFrame,
     route_name: str,
@@ -386,9 +399,9 @@ def plot_segment_dashboard(
     depot_rows = segment_summary[depot_mask]
     depot_color = (0.95, 0.55, 0.1)
     depot_span_color = (1.0, 0.85, 0.45)
-
+ 
     fig, axes = plt.subplots(3, 1, figsize=(15, 11), sharex=True, num="bus_segment_dashboard")
-
+ 
     for axis in axes:
         _highlight_time_windows(
             axis,
@@ -399,7 +412,7 @@ def plot_segment_dashboard(
             alpha=0.25,
             label="Trajet depot" if axis is axes[0] else None,
         )
-
+ 
     axes[0].plot(
         x_values,
         segment_summary["AveragePower_kW"],
@@ -422,7 +435,7 @@ def plot_segment_dashboard(
     axes[0].set_title(f"Puissance moyenne par segment en temps reel - {route_name}")
     axes[0].legend(loc="best")
     _style_time_axis(axes[0])
-
+ 
     axes[1].plot(
         x_values,
         segment_summary["Distance_km"],
@@ -442,7 +455,7 @@ def plot_segment_dashboard(
     axes[1].set_ylabel("Distance (km)")
     axes[1].set_title("Distance entre deux arrets en temps reel")
     _style_time_axis(axes[1])
-
+ 
     axes[2].plot(
         x_values,
         segment_summary["SoC_End_pct"],
@@ -464,13 +477,13 @@ def plot_segment_dashboard(
     axes[2].set_title("Evolution du SoC a chaque arrivee d'arret")
     axes[2].set_ylim(0, 105)
     _style_time_axis(axes[2])
-
+ 
     fig.tight_layout()
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(output_path, dpi=160, bbox_inches="tight")
-
-
+ 
+ 
 def plot_realtime_dashboard(
     realtime_profile: pd.DataFrame,
     route_name: str,
@@ -478,19 +491,19 @@ def plot_realtime_dashboard(
 ) -> None:
     """
     Wrapper de compatibilite avec l'ancienne architecture.
-
+ 
     L'ancienne version du main importait `plot_realtime_dashboard`.
     On redirige maintenant cet appel vers le graphe puissance/temps
     pour eviter tout ImportError si un ancien script est encore lance.
     """
-
+ 
     plot_power_over_time(
         full_day_profile=realtime_profile,
         route_name=route_name,
         output_path=output_path,
     )
-
-
+ 
+ 
 def plot_distance_soc_over_time(
     full_day_profile: pd.DataFrame,
     route_name: str,
@@ -498,19 +511,19 @@ def plot_distance_soc_over_time(
 ) -> None:
     """
     Wrapper de compatibilite avec l'ancienne architecture.
-
+ 
     L'ancien nom `plot_distance_soc_over_time` est conserve pour permettre
     le lancement d'un ancien `main_code.py` sans modifier manuellement
     toutes les instructions d'import.
     """
-
+ 
     plot_soc_over_time(
         full_day_profile=full_day_profile,
         route_name=route_name,
         output_path=output_path,
     )
-
-
+ 
+ 
 def print_segment_preview(segment_summary: pd.DataFrame, max_rows: int = 20) -> None:
     preview = segment_summary.head(max_rows).copy()
     with pd.option_context(
