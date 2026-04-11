@@ -135,7 +135,14 @@ def build_full_day_profile(
         charge_profile["CumulativeEnergyUsed_kWh"] - charge_profile["CumulativeEnergyCharged_kWh"]
     )
  
-    full_day_profile = pd.concat([service_profile, charge_profile.iloc[1:]], ignore_index=True)
+    # Ajout d'un point à 0 kW après la fin de charge
+    last_row = charge_profile.iloc[[-1]].copy()
+    last_row["TimeHour"] = actual_charge_end_time + pd.Timedelta(minutes=1)
+    last_row["ChargePower_kW"] = 0.0
+    last_row["NetPower_kW"] = 0.0
+    last_row["EnergyCharged_kWh"] = 0.0
+
+    full_day_profile = pd.concat([service_profile, charge_profile.iloc[1:], last_row], ignore_index=True)
     metadata = {
         "charge_power_kw": pcharge_kw,
         "charge_window_h": charge_window_h,
