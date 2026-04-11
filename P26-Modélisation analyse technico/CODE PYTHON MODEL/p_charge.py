@@ -17,6 +17,5 @@ def p_charge(SoCi: float, Eb: float, TimeDifference: float, Pterminal: float) ->
     Pcharge : puissance de charge (kW)
     """
     Pcharge = min((1 - SoCi) * Eb / TimeDifference, Pterminal)
-    Pcharge = math.ceil(Pcharge + 1)
     Pcharge = 1.01 * Pcharge
     return Pcharge
