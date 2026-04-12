@@ -152,7 +152,20 @@ def build_full_day_profile(
     last_row2 = last_row1.copy()
     last_row2["TimeHour"] = service_start_time + pd.Timedelta(days=1)
 
-    full_day_profile = pd.concat([service_profile, charge_profile.iloc[1:], last_row1, last_row2], ignore_index=True)   
+    # Point à 0 kW au début
+    zero_row1 = service_profile.iloc[[0]].copy()
+    zero_row1["TimeHour"] = service_profile["TimeHour"].iloc[0] - pd.Timedelta(minutes=30)
+    zero_row1["NetPower_kW"] = 0.0
+    zero_row1["Power_kW"] = 0.0
+    zero_row1["ChargePower_kW"] = 0.0
+    zero_row1["EnergyUsed_kWh"] = 0.0
+    zero_row1["EnergyCharged_kWh"] = 0.0
+    zero_row1["SoC"] = 100.0
+
+    zero_row2 = zero_row1.copy()
+    zero_row2["TimeHour"] = service_profile["TimeHour"].iloc[0] - pd.Timedelta(seconds=1)
+
+    full_day_profile = pd.concat([zero_row1, zero_row2, service_profile, charge_profile.iloc[1:], last_row1, last_row2], ignore_index=True)
     metadata = {
         "charge_power_kw": pcharge_kw,
         "charge_window_h": charge_window_h,
