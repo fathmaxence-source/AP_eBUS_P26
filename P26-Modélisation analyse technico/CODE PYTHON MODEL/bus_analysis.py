@@ -80,10 +80,16 @@ def build_full_day_profile(
     charge_window_h, next_start_time = compute_charge_window_hours(service_start_time, service_end_time)
  
     # On charge a pleine puissance terminale
-    pcharge_kw = terminal_power_kw
+    #pcharge_kw = terminal_power_kw
+    #time_to_full_h = (1 - soc_end_fraction) * battery_capacity_kwh / pcharge_kw
+    #actual_charge_end_time = service_end_time + pd.Timedelta(hours=time_to_full_h)
+    
+    #Puissance minimum pour pouvoir avoir 100% au début du prochain service
+    
+    pcharge_kw = p_charge(soc_end_fraction, battery_capacity_kwh, charge_window_h, terminal_power_kw)
     time_to_full_h = (1 - soc_end_fraction) * battery_capacity_kwh / pcharge_kw
     actual_charge_end_time = service_end_time + pd.Timedelta(hours=time_to_full_h)
- 
+    
     charge_times = pd.date_range(start=service_end_time, end=actual_charge_end_time, freq="min")
     
     if len(charge_times) <= 1:
