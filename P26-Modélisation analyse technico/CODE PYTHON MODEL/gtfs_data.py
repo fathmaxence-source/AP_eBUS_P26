@@ -17,6 +17,7 @@ if str(GTFS_MODULE_DIR) not in sys.path:
 from gtfs_core import (  # noqa: E402
     build_stop_index,
     build_stop_times_index,
+    construire_ids_services_actifs,
     default_search_root,
     discover_gtfs_feeds,
     download_online_gtfs_feed,
@@ -170,6 +171,173 @@ def _build_trip_rows(
     return rows
 
 
+def _filtrer_trips_actifs_par_date(
+    trips: list[dict[str, str]],
+    ids_services_actifs: set[str] | None,
+) -> list[dict[str, str]]:
+    if ids_services_actifs is None:
+        return list(trips)
+    return [
+        trip
+        for trip in trips
+        if trip.get("service_id", "") in ids_services_actifs
+    ]
+
+
+def _ordonner_trips_par_depart_reel(
+    trips: list[dict[str, str]],
+    stop_times_index: dict[str, list[dict[str, Any]]],
+) -> list[dict[str, str]]:
+    def _cle_tri(trip: dict[str, str]) -> tuple[int, int, str]:
+        trip_stop_times = stop_times_index.get(trip["trip_id"], [])
+        if not trip_stop_times:
+            return (10**12, 10**12, trip["trip_id"])
+        return (
+            trip_stop_times[0]["departure_seconds"],
+            trip_stop_times[-1]["arrival_seconds"],
+            trip["trip_id"],
+        )
+
+    return sorted(trips, key=_cle_tri)
+
+
+def _construire_resume_course(
+    trip: dict[str, str],
+    trip_stop_times: list[dict[str, Any]],
+    stops_index: dict[str, dict[str, Any]],
+    service_date: str,
+) -> dict[str, Any]:
+    premier_arret = stops_index[trip_stop_times[0]["stop_id"]]
+    dernier_arret = stops_index[trip_stop_times[-1]["stop_id"]]
+    depart_secondes = trip_stop_times[0]["departure_seconds"]
+    arrivee_secondes = trip_stop_times[-1]["arrival_seconds"]
+    depart_horaire = pd.Timestamp(service_date) + pd.to_timedelta(
+        depart_secondes,
+        unit="s",
+    )
+    arrivee_horaire = pd.Timestamp(service_date) + pd.to_timedelta(
+        arrivee_secondes,
+        unit="s",
+    )
+
+    rows = _build_trip_rows(
+        trip=trip,
+        trip_stop_times=trip_stop_times,
+        stops_index=stops_index,
+        default_stop_duration_s=0.0,
+    )
+    distance_totale_m = float(sum(row["Distance"] for row in rows))
+    return {
+        "TripID": trip["trip_id"],
+        "RouteID": trip.get("route_id", ""),
+        "ServiceID": trip.get("service_id", ""),
+        "DirectionID": trip.get("direction_id", ""),
+        "Headsign": trip.get("trip_headsign", ""),
+        "StartStopName": premier_arret["stop_name"],
+        "EndStopName": dernier_arret["stop_name"],
+        "DepartureSeconds": depart_secondes,
+        "ArrivalSeconds": arrivee_secondes,
+        "DepartureTime": depart_horaire,
+        "ArrivalTime": arrivee_horaire,
+        "Duration_s": float(arrivee_secondes - depart_secondes),
+        "Distance_m": distance_totale_m,
+        "StopCount": len(trip_stop_times),
+        "SegmentCount": sum(1 for row in rows if row["Stop"] == 1),
+    }
+
+
+def charger_courses_reelles_journalieres(
+    config: GTFSBusConfig,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """
+    Extrait toutes les courses GTFS actives pour une ligne sur une date donnee.
+
+    Cette fonction sert de base a la future affectation de flotte : elle
+    reconstruit le service reel du jour, trie par heure de depart.
+    """
+
+    search_root = _resolve_search_root(config.search_root)
+    gtfs_dir = _select_gtfs_directory(config, search_root)
+    feed = load_gtfs_feed(gtfs_dir)
+
+    stop_times_index = build_stop_times_index(feed["stop_times"])
+    stops_index = build_stop_index(feed["stops"])
+    resolved_route_id = config.route_id or resolve_route_id_from_selector(
+        feed["routes"],
+        config.line_selector,
+    )
+
+    ids_services_actifs = construire_ids_services_actifs(
+        feed,
+        config.service_date,
+    )
+    trips_candidats = [
+        trip
+        for trip in feed["trips"]
+        if (config.trip_id is None or trip.get("trip_id") == config.trip_id)
+        and (
+            config.trip_id is not None
+            or resolved_route_id is None
+            or trip.get("route_id") == resolved_route_id
+        )
+        and (
+            config.trip_id is not None
+            or config.direction_id is None
+            or trip.get("direction_id") == config.direction_id
+        )
+        and trip["trip_id"] in stop_times_index
+    ]
+    if config.trip_id is not None:
+        trips_actifs = list(trips_candidats)
+    else:
+        trips_actifs = _filtrer_trips_actifs_par_date(
+            trips_candidats,
+            ids_services_actifs,
+        )
+    trips_ordonnes = _ordonner_trips_par_depart_reel(
+        trips_actifs,
+        stop_times_index,
+    )
+
+    if not trips_ordonnes:
+        raise ValueError(
+            "Aucune course GTFS active n'a ete trouvee pour la date de service demandee."
+        )
+
+    routes = {
+        route.get("route_id", ""): route
+        for route in feed.get("routes", [])
+    }
+    route = routes.get(resolved_route_id or "", {})
+    courses = pd.DataFrame(
+        [
+            _construire_resume_course(
+                trip=trip,
+                trip_stop_times=stop_times_index[trip["trip_id"]],
+                stops_index=stops_index,
+                service_date=config.service_date,
+            )
+            for trip in trips_ordonnes
+        ]
+    )
+    courses["CourseIndex"] = range(1, len(courses) + 1)
+
+    metadata = {
+        "gtfs_dir": str(gtfs_dir),
+        "service_date": config.service_date,
+        "route_id": resolved_route_id or "",
+        "route_short_name": route.get("route_short_name", ""),
+        "route_long_name": route.get("route_long_name", ""),
+        "direction_id": config.direction_id,
+        "trip_count": len(trips_ordonnes),
+        "calendar_filter_active": ids_services_actifs is not None,
+        "service_ids_count": (
+            len(ids_services_actifs) if ids_services_actifs is not None else None
+        ),
+    }
+    return courses, metadata
+
+
 def _build_depot_deadhead_row(
     start_stop_name: str,
     end_stop_name: str,
@@ -210,9 +378,20 @@ def load_single_bus_service(config: GTFSBusConfig) -> tuple[pd.DataFrame, dict[s
         feed["routes"],
         config.line_selector,
     )
+    ids_services_actifs = construire_ids_services_actifs(
+        feed,
+        config.service_date,
+    )
+    if config.trip_id is not None:
+        trips_actifs = list(feed["trips"])
+    else:
+        trips_actifs = _filtrer_trips_actifs_par_date(
+            feed["trips"],
+            ids_services_actifs,
+        )
 
     selected_trips = select_trips_for_analysis(
-        trips=feed["trips"],
+        trips=trips_actifs,
         stop_times_index=stop_times_index,
         trip_id=config.trip_id,
         route_id=resolved_route_id,
@@ -334,11 +513,13 @@ def load_single_bus_service(config: GTFSBusConfig) -> tuple[pd.DataFrame, dict[s
         "route_short_name": route.get("route_short_name", ""),
         "route_long_name": route.get("route_long_name", ""),
         "trip_ids": [trip["trip_id"] for trip in selected_trips],
+        "service_trip_count": len(trips_actifs),
         "start_time": service_start,
         "first_stop_departure": first_stop_departure,
         "cycle_count": max(config.cycle_count, 1),
         "include_depot_deadhead": config.include_depot_deadhead,
         "depot_deadhead_distance_m": config.depot_deadhead_distance_m,
         "depot_deadhead_speed_m_s": config.depot_deadhead_speed_m_s,
+        "calendar_filter_active": ids_services_actifs is not None,
     }
     return tabl, metadata

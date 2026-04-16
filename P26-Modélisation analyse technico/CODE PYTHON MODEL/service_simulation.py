@@ -212,7 +212,8 @@ def construire_lignes_resume_simulation(
         f"SoC final   : {tableau_parcours['SoC'].iloc[-1]:.2f} %",
         f"Charge soir : {metadonnees_charge['charge_power_kw']:.2f} kW",
         f"Borne depot : {configuration.recharge.puissance_borne_depot_kw:.2f} kW",
-        f"Fin charge  : {metadonnees_charge['next_start_time']}",
+        "Fin charge  : "
+        f"{metadonnees_charge.get('actual_charge_end_time', metadonnees_charge['next_start_time'])}",
         f"Batterie    : {resultat_simulation.capacite_batterie_kwh:.2f} kWh",
         f"Masse ref   : {modele_bus.reference_mass_kg:.0f} kg",
         f"Surface AV  : {modele_bus.frontal_area_m2:.2f} m2",

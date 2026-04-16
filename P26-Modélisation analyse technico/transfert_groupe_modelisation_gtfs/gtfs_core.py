@@ -4,6 +4,8 @@ import json
 import math
 import shutil
 import unicodedata
+from datetime import date as date_calendaire
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from zipfile import BadZipFile, ZipFile
@@ -31,6 +33,80 @@ def parse_int(value: Optional[str], default: int = 0) -> int:
 def parse_gtfs_time_to_seconds(time_value: str) -> int:
     hours_str, minutes_str, seconds_str = time_value.split(":")
     return int(hours_str) * 3600 + int(minutes_str) * 60 + int(seconds_str)
+
+
+def convertir_date_gtfs(date_value: str) -> date_calendaire:
+    return datetime.strptime(date_value, "%Y%m%d").date()
+
+
+def convertir_date_service(date_value: str) -> date_calendaire:
+    if "-" in date_value:
+        return datetime.strptime(date_value, "%Y-%m-%d").date()
+    return convertir_date_gtfs(date_value)
+
+
+def _jour_calendaire_gtfs(service_date: date_calendaire) -> str:
+    jours = (
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+    )
+    return jours[service_date.weekday()]
+
+
+def construire_ids_services_actifs(
+    feed: Dict[str, List[Dict[str, str]]],
+    service_date: Optional[str],
+) -> Optional[set[str]]:
+    if not service_date:
+        return None
+
+    date_cible = convertir_date_service(service_date)
+    calendar_rows = feed.get("calendar", [])
+    calendar_dates_rows = feed.get("calendar_dates", [])
+    ids_services_actifs: set[str] = set()
+
+    if calendar_rows:
+        jour_cible = _jour_calendaire_gtfs(date_cible)
+        for row in calendar_rows:
+            service_id = row.get("service_id", "")
+            if not service_id:
+                continue
+            start_date = row.get("start_date", "")
+            end_date = row.get("end_date", "")
+            if not start_date or not end_date:
+                continue
+            if not (
+                convertir_date_gtfs(start_date)
+                <= date_cible
+                <= convertir_date_gtfs(end_date)
+            ):
+                continue
+            if parse_int(row.get(jour_cible), 0) != 1:
+                continue
+            ids_services_actifs.add(service_id)
+
+    if calendar_dates_rows:
+        date_cible_gtfs = date_cible.strftime("%Y%m%d")
+        for row in calendar_dates_rows:
+            if row.get("date") != date_cible_gtfs:
+                continue
+            service_id = row.get("service_id", "")
+            if not service_id:
+                continue
+            exception_type = parse_int(row.get("exception_type"), 0)
+            if exception_type == 1:
+                ids_services_actifs.add(service_id)
+            elif exception_type == 2:
+                ids_services_actifs.discard(service_id)
+
+    if not calendar_rows and not calendar_dates_rows:
+        return None
+    return ids_services_actifs
 
 
 def normalize_text(value: str) -> str:
@@ -276,6 +352,12 @@ def load_gtfs_feed(gtfs_dir: Path) -> Dict[str, List[Dict[str, str]]]:
     feed["shapes"] = load_csv_rows(gtfs_dir / "shapes.txt") if (gtfs_dir / "shapes.txt").exists() else []
     feed["routes"] = load_csv_rows(gtfs_dir / "routes.txt") if (gtfs_dir / "routes.txt").exists() else []
     feed["agency"] = load_csv_rows(gtfs_dir / "agency.txt") if (gtfs_dir / "agency.txt").exists() else []
+    feed["calendar"] = load_csv_rows(gtfs_dir / "calendar.txt") if (gtfs_dir / "calendar.txt").exists() else []
+    feed["calendar_dates"] = (
+        load_csv_rows(gtfs_dir / "calendar_dates.txt")
+        if (gtfs_dir / "calendar_dates.txt").exists()
+        else []
+    )
     return feed
 
 
