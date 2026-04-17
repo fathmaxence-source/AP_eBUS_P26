@@ -4,9 +4,10 @@ import numpy as np
 import pandas as pd
 
 from bus_models import BusModel, LEGACY_BUS_MODEL
+from configuration_simulation import ConfigurationAlertesBatterie
 
 
-def route_soc(
+def calculer_soc_parcours(
     tabl: pd.DataFrame,
     bus_model: BusModel | None = None,
 ) -> tuple[pd.DataFrame, float]:
@@ -31,13 +32,25 @@ def route_soc(
     return tabl, battery_capacity_kwh
 
 
-def build_battery_alert_message(
+def construire_message_alerte_batterie(
     tabl: pd.DataFrame,
-    critical_soc_pct: float = 10.0,
+    configuration_alertes: ConfigurationAlertesBatterie | None = None,
+    critical_soc_pct: float | None = None,
 ) -> str | None:
     """
     Retourne un message si la batterie devient vide ou critique pendant le trajet.
     """
+
+    if configuration_alertes is None:
+        configuration_alertes = ConfigurationAlertesBatterie()
+    if critical_soc_pct is not None:
+        configuration_alertes = ConfigurationAlertesBatterie(
+            seuil_alerte_soc_pct=critical_soc_pct,
+            seuil_echec_soc_pct=configuration_alertes.seuil_echec_soc_pct,
+            interrompre_si_batterie_vide=(
+                configuration_alertes.interrompre_si_batterie_vide
+            ),
+        )
 
     if "SoC" not in tabl.columns or tabl.empty:
         return None
@@ -54,16 +67,41 @@ def build_battery_alert_message(
     if "StartStopName" in tabl.columns and "EndStopName" in tabl.columns:
         segment_label = f" sur le segment '{min_row['StartStopName']} -> {min_row['EndStopName']}'"
 
-    if min_soc <= 0:
+    if min_soc <= configuration_alertes.seuil_echec_soc_pct:
         return (
             "[ERREUR BATTERIE] La batterie se vide pendant le trajet"
             f"{time_label}{segment_label} (SoC min = {min_soc:.2f} %)."
         )
 
-    if min_soc <= critical_soc_pct:
+    if min_soc <= configuration_alertes.seuil_alerte_soc_pct:
         return (
             "[ALERTE BATTERIE] La batterie devient critique pendant le trajet"
             f"{time_label}{segment_label} (SoC min = {min_soc:.2f} %)."
         )
 
     return None
+
+
+def route_soc(
+    tabl: pd.DataFrame,
+    bus_model: BusModel | None = None,
+) -> tuple[pd.DataFrame, float]:
+    """
+    Alias de compatibilite vers la nouvelle fonction de calcul.
+    """
+
+    return calculer_soc_parcours(tabl=tabl, bus_model=bus_model)
+
+
+def build_battery_alert_message(
+    tabl: pd.DataFrame,
+    critical_soc_pct: float = 10.0,
+) -> str | None:
+    """
+    Alias de compatibilite vers la nouvelle fonction d'alerte.
+    """
+
+    return construire_message_alerte_batterie(
+        tabl=tabl,
+        critical_soc_pct=critical_soc_pct,
+    )

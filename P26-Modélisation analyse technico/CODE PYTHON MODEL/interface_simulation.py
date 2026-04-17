@@ -11,6 +11,11 @@ from configuration_simulation import (
     construire_configuration_depuis_arguments,
     construire_configuration_simulation_par_defaut,
 )
+from flotte_exploitation import (
+    affecter_courses_aux_bus,
+    construire_lignes_resume_flotte,
+)
+from gtfs_data import charger_courses_reelles_journalieres
 from service_simulation import (
     ResultatSimulation,
     construire_lignes_resume_simulation,
@@ -55,7 +60,9 @@ class InterfaceSimulationP26:
             pass
 
         self.resultat_simulation: ResultatSimulation | None = None
+        self.dossier_sortie_courant: Path | None = None
 
+        self.var_mode_execution = tk.StringVar(value="simulation")
         self.var_mode_donnees = tk.StringVar(
             value=CONFIGURATION_PAR_DEFAUT.gtfs.data_mode
         )
@@ -89,6 +96,7 @@ class InterfaceSimulationP26:
         self.var_nombre_bus = tk.StringVar(
             value=str(CONFIGURATION_PAR_DEFAUT.flotte.nombre_bus)
         )
+        self.var_temps_battement = tk.StringVar(value="300")
         self.var_nom_depot = tk.StringVar(
             value=CONFIGURATION_PAR_DEFAUT.gtfs.depot_name
         )
@@ -124,8 +132,10 @@ class InterfaceSimulationP26:
         )
         self.var_afficher_graphiques = tk.BooleanVar(value=True)
         self.var_resume_modele = tk.StringVar(value="")
+        self.var_resume_mode_execution = tk.StringVar(value="")
 
         self._construire_interface()
+        self._mettre_a_jour_resume_mode_execution()
         self._mettre_a_jour_resume_modele()
         self._mettre_a_jour_etat_gtfs_local()
 
@@ -266,6 +276,46 @@ class InterfaceSimulationP26:
         carte_service = self._creer_carte(onglet_service, "Service GTFS")
         carte_service.grid_columnconfigure(1, weight=1)
 
+        ligne_mode_execution = tk.Frame(carte_service, bg="white")
+        bouton_mode_simulation = ttk.Radiobutton(
+            ligne_mode_execution,
+            text="Simulation energetique",
+            value="simulation",
+            variable=self.var_mode_execution,
+            command=self._mettre_a_jour_resume_mode_execution,
+        )
+        bouton_mode_simulation.pack(anchor="w")
+        bouton_mode_flotte = ttk.Radiobutton(
+            ligne_mode_execution,
+            text="Apercu flotte GTFS reel",
+            value="apercu_flotte",
+            variable=self.var_mode_execution,
+            command=self._mettre_a_jour_resume_mode_execution,
+        )
+        bouton_mode_flotte.pack(anchor="w", pady=(4, 0))
+        self._ajouter_ligne(
+            carte_service,
+            0,
+            "Mode d'execution",
+            ligne_mode_execution,
+            aide=(
+                "La simulation energetique suit le flux historique a 1 bus. "
+                "L'apercu flotte calcule le nombre minimal de bus a partir "
+                "des departs reels du GTFS."
+            ),
+        )
+
+        resume_mode = tk.Label(
+            carte_service,
+            textvariable=self.var_resume_mode_execution,
+            justify="left",
+            anchor="w",
+            bg="white",
+            fg="#455468",
+            font=("Segoe UI", 8),
+        )
+        resume_mode.grid(row=2, column=1, sticky="w", pady=(0, 6))
+
         combo_mode = ttk.Combobox(
             carte_service,
             textvariable=self.var_mode_donnees,
@@ -277,7 +327,7 @@ class InterfaceSimulationP26:
             "<<ComboboxSelected>>",
             lambda _event: self._mettre_a_jour_etat_gtfs_local(),
         )
-        self._ajouter_ligne(carte_service, 0, "Mode de donnees", combo_mode)
+        self._ajouter_ligne(carte_service, 3, "Mode de donnees", combo_mode)
 
         ligne_path = tk.Frame(carte_service, bg="white")
         ligne_path.grid_columnconfigure(0, weight=1)
@@ -294,7 +344,7 @@ class InterfaceSimulationP26:
         self.bouton_gtfs_path = bouton_path
         self._ajouter_ligne(
             carte_service,
-            2,
+            5,
             "Dossier GTFS local",
             ligne_path,
             aide="Optionnel en mode local. Laisse vide pour la recherche par defaut.",
@@ -302,41 +352,46 @@ class InterfaceSimulationP26:
 
         self._ajouter_ligne(
             carte_service,
-            4,
+            7,
             "Reseau GTFS",
             ttk.Entry(carte_service, textvariable=self.var_reseau, width=28),
         )
         self._ajouter_ligne(
             carte_service,
-            5,
+            8,
             "Ligne",
             ttk.Entry(carte_service, textvariable=self.var_ligne, width=28),
         )
         self._ajouter_ligne(
             carte_service,
-            6,
+            9,
             "Direction",
             ttk.Entry(carte_service, textvariable=self.var_direction, width=28),
-            aide="Laisse vide pour prendre un trajet representatif.",
+            aide=(
+                "Laisse vide pour prendre un trajet representatif en simulation, "
+                "ou toutes les directions en apercu flotte."
+            ),
         )
         self._ajouter_ligne(
             carte_service,
-            8,
+            11,
             "Date de service",
             ttk.Entry(carte_service, textvariable=self.var_date_service, width=28),
             aide="Format attendu : AAAA-MM-JJ",
         )
         self._ajouter_ligne(
             carte_service,
-            10,
+            13,
             "Cycles",
             ttk.Entry(carte_service, textvariable=self.var_cycles, width=28),
+            aide="Utilise seulement par la simulation energetique historique.",
         )
         self._ajouter_ligne(
             carte_service,
-            11,
+            15,
             "Duree d'arret (s)",
             ttk.Entry(carte_service, textvariable=self.var_duree_arret, width=28),
+            aide="Utilisee seulement par la simulation energetique historique.",
         )
 
         carte_bus = self._creer_carte(onglet_bus, "Bus et flotte")
@@ -371,7 +426,20 @@ class InterfaceSimulationP26:
             2,
             "Nombre de bus",
             ttk.Entry(carte_bus, textvariable=self.var_nombre_bus, width=32),
-            aide="Le parametre est prepare pour la suite. Aujourd'hui, seul 1 est supporte.",
+            aide=(
+                "Champ prepare pour la future simulation multi-bus. "
+                "Ignore dans l'apercu flotte, ou le nombre est calcule."
+            ),
+        )
+        self._ajouter_ligne(
+            carte_bus,
+            4,
+            "Battement flotte (s)",
+            ttk.Entry(carte_bus, textvariable=self.var_temps_battement, width=32),
+            aide=(
+                "Temps minimal entre deux courses d'un meme bus. "
+                "Utilise par l'apercu flotte GTFS reel."
+            ),
         )
 
         carte_recharge = self._creer_carte(onglet_recharge, "Recharge et securite")
@@ -524,10 +592,24 @@ class InterfaceSimulationP26:
 
         self._ecrire_journal(
             "Interface prete.\n\n"
-            "Renseigne les parametres dans les onglets de gauche puis clique sur "
-            "'Lancer la simulation'.\n"
-            "Les graphes sont toujours enregistres dans le dossier outputs.\n"
+            "Choisis d'abord un mode : simulation energetique ou apercu flotte.\n"
+            "Les graphes ne sont generes que par la simulation energetique.\n"
         )
+
+    def _mettre_a_jour_resume_mode_execution(self) -> None:
+        mode_execution = self.var_mode_execution.get()
+        if mode_execution == "apercu_flotte":
+            self.var_resume_mode_execution.set(
+                "Apercu flotte : service reel du jour, tri des courses par heure,\n"
+                "puis affectation simple a une flotte minimale avec battement fixe."
+            )
+            self.bouton_lancer.configure(text="Lancer l'apercu flotte")
+        else:
+            self.var_resume_mode_execution.set(
+                "Simulation energetique : flux historique du projet sur un bus,\n"
+                "avec cycles, recharge et generation des graphes."
+            )
+            self.bouton_lancer.configure(text="Lancer la simulation")
 
     def _mettre_a_jour_resume_modele(self) -> None:
         modele = MODELES_BUS[self.var_modele_bus.get()]
@@ -580,6 +662,7 @@ class InterfaceSimulationP26:
     def construire_arguments_depuis_formulaire(self) -> argparse.Namespace:
         gtfs_path = self.var_gtfs_path.get().strip() or None
         direction = self.var_direction.get().strip() or None
+        mode_execution = self.var_mode_execution.get()
 
         arguments = argparse.Namespace(
             scenario=self._lire_entier(self.var_scenario.get(), "Le scenario"),
@@ -614,6 +697,10 @@ class InterfaceSimulationP26:
                 self.var_nombre_bus.get(),
                 "Le nombre de bus",
             ),
+            temps_battement_s=self._lire_flottant(
+                self.var_temps_battement.get(),
+                "Le temps de battement flotte",
+            ),
             puissance_borne_depot_kw=self._lire_flottant(
                 self.var_puissance_borne_depot.get(),
                 "La puissance de borne depot",
@@ -635,29 +722,71 @@ class InterfaceSimulationP26:
                 "Le seuil d'echec SoC",
             ),
             list_bus_models=False,
+            apercu_flotte=mode_execution == "apercu_flotte",
             interface=False,
             sans_graphiques=not self.var_afficher_graphiques.get(),
         )
         return arguments
 
+    def _executer_simulation_energetique(
+        self,
+        arguments: argparse.Namespace,
+    ) -> str:
+        configuration_simulation = construire_configuration_depuis_arguments(arguments)
+        self.resultat_simulation = executer_simulation(
+            configuration_simulation=configuration_simulation,
+            afficher_graphiques=self.var_afficher_graphiques.get(),
+        )
+        self.dossier_sortie_courant = self.resultat_simulation.dossier_sortie
+        return "\n".join(
+            construire_lignes_resume_simulation(self.resultat_simulation)
+        )
+
+    def _executer_apercu_flotte(
+        self,
+        arguments: argparse.Namespace,
+    ) -> str:
+        arguments_configuration = vars(arguments).copy()
+        arguments_configuration["nombre_bus"] = 1
+        configuration_simulation = construire_configuration_depuis_arguments(
+            argparse.Namespace(**arguments_configuration)
+        )
+
+        courses, metadonnees_service = charger_courses_reelles_journalieres(
+            configuration_simulation.gtfs
+        )
+        resultat_affectation = affecter_courses_aux_bus(
+            courses=courses,
+            temps_battement_s=arguments.temps_battement_s,
+        )
+
+        self.resultat_simulation = None
+        self.dossier_sortie_courant = None
+        return "\n".join(
+            construire_lignes_resume_flotte(
+                resultat_affectation=resultat_affectation,
+                metadonnees_service=metadonnees_service,
+            )
+        )
+
     def lancer_simulation(self) -> None:
         self.bouton_lancer.configure(state="disabled")
         self.racine.configure(cursor="watch")
-        self._ecrire_journal("Simulation en cours...\n\n", remplacer=True)
+        mode_execution = self.var_mode_execution.get()
+        texte_attente = (
+            "Apercu flotte en cours...\n\n"
+            if mode_execution == "apercu_flotte"
+            else "Simulation en cours...\n\n"
+        )
+        self._ecrire_journal(texte_attente, remplacer=True)
         self.racine.update_idletasks()
 
         try:
             arguments = self.construire_arguments_depuis_formulaire()
-            configuration_simulation = construire_configuration_depuis_arguments(
-                arguments
-            )
-            self.resultat_simulation = executer_simulation(
-                configuration_simulation=configuration_simulation,
-                afficher_graphiques=self.var_afficher_graphiques.get(),
-            )
-            resume = "\n".join(
-                construire_lignes_resume_simulation(self.resultat_simulation)
-            )
+            if arguments.apercu_flotte:
+                resume = self._executer_apercu_flotte(arguments)
+            else:
+                resume = self._executer_simulation_energetique(arguments)
             self._ecrire_journal(resume + "\n", remplacer=True)
         except Exception as exc:  # noqa: BLE001
             self._ecrire_journal(f"Echec de la simulation : {exc}\n", remplacer=True)
@@ -670,14 +799,14 @@ class InterfaceSimulationP26:
             self.bouton_lancer.configure(state="normal")
 
     def ouvrir_dossier_sortie(self) -> None:
-        if self.resultat_simulation is None:
+        if self.dossier_sortie_courant is None:
             messagebox.showinfo(
                 "Aucun dossier",
-                "Lance d'abord une simulation pour creer un dossier de sortie.",
+                "Ce mode n'a pas genere de dossier de sortie ouvrable.",
             )
             return
 
-        dossier = self.resultat_simulation.dossier_sortie
+        dossier = self.dossier_sortie_courant
         if not dossier.exists():
             messagebox.showwarning(
                 "Dossier introuvable",

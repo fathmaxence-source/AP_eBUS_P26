@@ -4,11 +4,12 @@ import numpy as np
 import pandas as pd
 
 from bus_models import BusModel, LEGACY_BUS_MODEL
+from configuration_simulation import ConfigurationRecharge
 
 
-def route_power(
+def calculer_puissance_parcours(
     tabl: pd.DataFrame,
-    scenario: int,
+    configuration_recharge: ConfigurationRecharge,
     bus_model: BusModel | None = None,
 ) -> pd.DataFrame:
     """
@@ -42,15 +43,38 @@ def route_power(
     tabl["BusModelId"] = model.model_id
     tabl["BusModelName"] = model.display_name
 
-    if scenario in (2, 3):
-        tabl.loc[tabl["deltaT"] == 3 * 60, "PowerC"] = 100e3
+    if configuration_recharge.scenario in (2, 3):
+        tabl.loc[
+            tabl["deltaT"] == configuration_recharge.duree_recharge_terminus_s,
+            "PowerC",
+        ] = configuration_recharge.puissance_borne_terminus_kw * 1000.0
 
-    if scenario == 3:
+    if configuration_recharge.scenario == 3:
         mask = (
-            (((tabl["PointID"] == 10) | (tabl["PointID"] == 22)))
+            (tabl["PointID"].isin(configuration_recharge.points_recharge_intermediaire))
             & (tabl["Stop"] == 0)
-            & (tabl["deltaT"] == 30)
+            & (tabl["deltaT"] == configuration_recharge.duree_recharge_intermediaire_s)
         )
-        tabl.loc[mask, "PowerC"] = 50e3
+        tabl.loc[mask, "PowerC"] = (
+            configuration_recharge.puissance_borne_intermediaire_kw * 1000.0
+        )
 
     return tabl
+
+
+def route_power(
+    tabl: pd.DataFrame,
+    scenario: int,
+    bus_model: BusModel | None = None,
+    configuration_recharge: ConfigurationRecharge | None = None,
+) -> pd.DataFrame:
+    """
+    Alias de compatibilite vers la nouvelle fonction de calcul.
+    """
+
+    configuration = configuration_recharge or ConfigurationRecharge(scenario=scenario)
+    return calculer_puissance_parcours(
+        tabl=tabl,
+        configuration_recharge=configuration,
+        bus_model=bus_model,
+    )
