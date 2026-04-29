@@ -44,10 +44,12 @@ def calculer_puissance_parcours(
     tabl["BusModelName"] = model.display_name
 
     if configuration_recharge.scenario in (2, 3):
-        tabl.loc[
-            tabl["deltaT"] == configuration_recharge.duree_recharge_terminus_s,
-            "PowerC",
-        ] = configuration_recharge.puissance_borne_terminus_kw * 1000.0
+        # Utiliser le marqueur IsTerminusRecharge si disponible, sinon fallback sur deltaT
+        if "IsTerminusRecharge" in tabl.columns:
+            mask = tabl["IsTerminusRecharge"] == True
+        else:
+            mask = tabl["deltaT"] == configuration_recharge.duree_recharge_terminus_s
+        tabl.loc[mask, "PowerC"] = configuration_recharge.puissance_borne_terminus_kw * 1000.0
 
     if configuration_recharge.scenario == 3:
         mask = (

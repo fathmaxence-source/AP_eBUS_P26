@@ -26,7 +26,7 @@ def calculer_soc_parcours(
     cumulative_soc_pct = np.cumsum(delta_soc) * 100.0
 
     tabl = tabl.copy()
-    tabl["SoC"] = cumulative_soc_pct + initial_soc_pct
+    tabl["SoC"] = np.minimum(cumulative_soc_pct + initial_soc_pct, 100.0)  # Limiter à 100% max
     tabl["BatteryCapacity_kWh"] = battery_capacity_kwh
 
     return tabl, battery_capacity_kwh

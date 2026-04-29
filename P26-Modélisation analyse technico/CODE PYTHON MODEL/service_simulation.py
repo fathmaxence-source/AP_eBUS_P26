@@ -8,6 +8,7 @@ import pandas as pd
 
 from bus_models import BusModel, get_bus_model
 from configuration_simulation import ConfigurationSimulation
+from data_entry import apply_scenario_modifications
 from gtfs_data import load_single_bus_service
 from route_power import calculer_puissance_parcours
 from route_soc import calculer_soc_parcours, construire_message_alerte_batterie
@@ -89,6 +90,12 @@ def executer_simulation(
     modele_bus = get_bus_model(configuration_simulation.id_modele_bus)
     tableau_parcours, metadonnees_gtfs = load_single_bus_service(
         configuration_simulation.gtfs
+    )
+    
+    # Appliquer les modifications spécifiques au scénario
+    tableau_parcours = apply_scenario_modifications(
+        tabl=tableau_parcours,
+        scenario=configuration_simulation.recharge.scenario,
     )
 
     tableau_parcours = calculer_puissance_parcours(

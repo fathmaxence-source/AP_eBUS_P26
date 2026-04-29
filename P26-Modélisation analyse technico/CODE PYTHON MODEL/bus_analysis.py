@@ -52,8 +52,8 @@ def build_realtime_profile(tabl: pd.DataFrame) -> pd.DataFrame:
     profile["CumulativeEnergyUsed_kWh"] = profile["EnergyUsed_kWh"].cumsum()
     profile["CumulativeEnergyCharged_kWh"] = profile["EnergyCharged_kWh"].cumsum()
     profile["NetBatteryEnergy_kWh"] = (
-        profile["CumulativeEnergyUsed_kWh"]
-        - profile["CumulativeEnergyCharged_kWh"]
+        profile["CumulativeEnergyCharged_kWh"]
+        - profile["CumulativeEnergyUsed_kWh"]
     )
     if "TripID" in profile.columns:
         profile["IsDepotSegment"] = _is_depot_trip_id(profile["TripID"])
