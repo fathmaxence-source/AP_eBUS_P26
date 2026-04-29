@@ -8,6 +8,7 @@ import pandas as pd
 
 from bus_models import BusModel, get_bus_model
 from configuration_simulation import ConfigurationSimulation
+from data_entry import apply_scenario_modifications
 from gtfs_data import load_single_bus_service
 from route_power import calculer_puissance_parcours
 from route_soc import calculer_soc_parcours, construire_message_alerte_batterie
@@ -90,6 +91,12 @@ def executer_simulation(
     tableau_parcours, metadonnees_gtfs = load_single_bus_service(
         configuration_simulation.gtfs
     )
+    
+    # Appliquer les modifications spécifiques au scénario
+    tableau_parcours = apply_scenario_modifications(
+        tabl=tableau_parcours,
+        scenario=configuration_simulation.recharge.scenario,
+    )
 
     tableau_parcours = calculer_puissance_parcours(
         tabl=tableau_parcours,
@@ -114,6 +121,7 @@ def executer_simulation(
         battery_capacity_kwh=capacite_batterie_kwh,
         service_start_time=debut_service,
         terminal_power_kw=configuration_simulation.recharge.puissance_borne_depot_kw,
+        smart_charging=configuration_simulation.recharge.smart_charging,
     )
 
     dossier_sortie = construire_dossier_sortie(
@@ -210,6 +218,8 @@ def construire_lignes_resume_simulation(
         f"Distance    : {profil_temps_reel['CumulativeDistance_km'].iloc[-1]:.2f} km",
         f"Energie     : {profil_temps_reel['EnergyUsed_kWh'].sum():.2f} kWh",
         f"SoC final   : {tableau_parcours['SoC'].iloc[-1]:.2f} %",
+        "Recharge    : "
+        f"{'optimisee' if metadonnees_charge.get('mode_recharge') == 'optimise' else 'borne max'}",
         f"Charge soir : {metadonnees_charge['charge_power_kw']:.2f} kW",
         f"Borne depot : {configuration.recharge.puissance_borne_depot_kw:.2f} kW",
         "Fin charge  : "

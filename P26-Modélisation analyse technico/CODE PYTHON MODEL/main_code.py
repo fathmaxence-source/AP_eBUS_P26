@@ -102,6 +102,19 @@ def construire_parseur_arguments() -> argparse.ArgumentParser:
     parser.add_argument("--desactiver-haut-le-pied", action="store_true")
     parser.add_argument("--nombre-bus", type=int, default=1)
     parser.add_argument("--temps-battement-s", type=float, default=0.0)
+    parser.add_argument(
+        "--smart-charging",
+        dest="smart_charging",
+        action="store_true",
+        default=True,
+        help="Optimise la puissance de recharge depot pour atteindre 100 % juste avant le prochain service.",
+    )
+    parser.add_argument(
+        "--sans-smart-charging",
+        dest="smart_charging",
+        action="store_false",
+        help="Utilise directement la puissance maximale de la borne depot.",
+    )
     parser.add_argument("--puissance-borne-depot-kw", type=float, default=None)
     parser.add_argument("--puissance-borne-terminus-kw", type=float, default=None)
     parser.add_argument("--puissance-borne-intermediaire-kw", type=float, default=None)
@@ -199,3 +212,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+#TEST

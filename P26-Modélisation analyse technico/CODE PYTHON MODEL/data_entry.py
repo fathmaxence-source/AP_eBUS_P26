@@ -1,7 +1,54 @@
 import pandas as pd
 import numpy as np
- 
- 
+
+
+def apply_scenario_modifications(tabl: pd.DataFrame, scenario: int) -> pd.DataFrame:
+    """
+    Applique les modifications spécifiques au scénario sur le tableau de données.
+    
+    Scénario 2 & 3 : Allonge le temps d'arrêt aux terminus (30s → 3min) pour
+    permettre la recharge pendant les arrêts.
+    
+    Terminus = premier et dernier arrêt de chaque trajet (identifiés par changement de TripID).
+    
+    Parameters
+    ----------
+    tabl     : pd.DataFrame  données du trajet (colonnes : Stop, deltaT, TripID)
+    scenario : int           numéro du scénario (1, 2 ou 3)
+    
+    Returns
+    -------
+    pd.DataFrame  données modifiées (avec colonne 'IsTerminusRecharge' pour les scénarios 2-3)
+    """
+    if "IsTerminusRecharge" not in tabl.columns:
+        tabl = tabl.copy()
+        tabl["IsTerminusRecharge"] = False
+    else:
+        tabl = tabl.copy()
+    
+    if scenario in (2, 3):
+        # Identifier les terminus: dernier arrêt de chaque trajet
+        # Un arrêt est un terminus si:
+        # 1. Stop == 0 (c'est un arrêt)
+        # 2. deltaT ≈ 30s (durée standard d'arrêt)
+        # 3. C'est le dernier arrêt avant changement de TripID (terminus)
+        
+        if "TripID" in tabl.columns:
+            trip_changes = tabl["TripID"] != tabl["TripID"].shift()
+            terminus_indices = trip_changes[trip_changes].index - 1
+            
+            # Vérifier que ce sont bien des arrêts avec deltaT ≈ 30s
+            terminus_mask = (
+                tabl.index.isin(terminus_indices) &
+                (tabl["Stop"] == 0) &
+                (abs(tabl["deltaT"] - 30) < 0.1)
+            )
+            tabl.loc[terminus_mask, "deltaT"] = 3 * 60  # 30s → 3min (180s)
+            tabl.loc[terminus_mask, "IsTerminusRecharge"] = True
+    
+    return tabl
+
+
 def data_entry(path: str, scenario: int, N: int):
     """
     Charge et prépare les données de trajet à partir d'un fichier Excel.

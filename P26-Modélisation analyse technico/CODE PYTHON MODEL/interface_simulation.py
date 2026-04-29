@@ -131,6 +131,9 @@ class InterfaceSimulationP26:
             value=CONFIGURATION_PAR_DEFAUT.gtfs.include_depot_deadhead
         )
         self.var_afficher_graphiques = tk.BooleanVar(value=True)
+        self.var_smart_charging = tk.BooleanVar(
+            value=CONFIGURATION_PAR_DEFAUT.recharge.smart_charging
+        )
         self.var_resume_modele = tk.StringVar(value="")
         self.var_resume_mode_execution = tk.StringVar(value="")
 
@@ -486,12 +489,25 @@ class InterfaceSimulationP26:
         self._ajouter_ligne(
             carte_recharge,
             4,
+            "Optimiser charge",
+            ttk.Checkbutton(
+                carte_recharge,
+                variable=self.var_smart_charging,
+            ),
+            aide=(
+                "Si actif, la puissance depot est ajustee au besoin reel. "
+                "Sinon, la borne depot charge a sa puissance maximale."
+            ),
+        )
+        self._ajouter_ligne(
+            carte_recharge,
+            6,
             "Seuil alerte SoC (%)",
             ttk.Entry(carte_recharge, textvariable=self.var_seuil_alerte, width=22),
         )
         self._ajouter_ligne(
             carte_recharge,
-            5,
+            7,
             "Seuil echec SoC (%)",
             ttk.Entry(carte_recharge, textvariable=self.var_seuil_echec, width=22),
         )
@@ -666,6 +682,7 @@ class InterfaceSimulationP26:
 
         arguments = argparse.Namespace(
             scenario=self._lire_entier(self.var_scenario.get(), "Le scenario"),
+            smart_charging=self.var_smart_charging.get(),
             bus_model=self.var_modele_bus.get(),
             data_mode=self.var_mode_donnees.get(),
             gtfs_path=gtfs_path,

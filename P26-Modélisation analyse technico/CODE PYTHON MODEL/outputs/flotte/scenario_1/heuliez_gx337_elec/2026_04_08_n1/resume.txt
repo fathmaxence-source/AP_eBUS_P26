@@ -1,0 +1,32 @@
+Simulation flotte bus par bus
+Statut global : OK
+Service date  : 2026-04-08
+Ligne         : Nemo 1 Bleu
+Direction     : toutes
+Modele bus    : Heuliez GX 337 ELEC
+Nb courses    : 153
+Nb bus mini   : 11
+Battement     : 300 s
+Distance tot. : 1992.5 km
+Energie tot.  : 1603.4 kWh
+SoC min flotte: 52.41 %
+Bus critique  : bus 3
+Marge min SoC : 42.41 points
+Hypotheses    : pas encore de recharge en journee ni conflits de bornes, pas de haut-le-pied reel entre courses, attente avec auxiliaires actifs.
+Bus 1 [OK] : 16 courses, 206.9 km, 162.3 kWh, SoC final 53.6 %, SoC min 53.6 %, marge 43.6 pts
+Bus 2 [OK] : 16 courses, 207.2 km, 164.8 kWh, SoC final 52.9 %, SoC min 52.9 %, marge 42.9 pts
+Bus 3 [OK] : 16 courses, 206.9 km, 166.6 kWh, SoC final 52.4 %, SoC min 52.4 %, marge 42.4 pts
+Bus 4 [OK] : 15 courses, 194.6 km, 157.1 kWh, SoC final 55.1 %, SoC min 55.1 %, marge 45.1 pts
+Bus 5 [OK] : 14 courses, 182.1 km, 145.5 kWh, SoC final 58.4 %, SoC min 58.4 %, marge 48.4 pts
+Bus 6 [OK] : 13 courses, 169.7 km, 135.1 kWh, SoC final 61.4 %, SoC min 61.4 %, marge 51.4 pts
+Bus 7 [OK] : 13 courses, 169.9 km, 136.8 kWh, SoC final 60.9 %, SoC min 60.9 %, marge 50.9 pts
+Bus 8 [OK] : 13 courses, 169.9 km, 140.9 kWh, SoC final 59.8 %, SoC min 59.8 %, marge 49.8 pts
+Bus 9 [OK] : 13 courses, 170.2 km, 141.0 kWh, SoC final 59.7 %, SoC min 59.7 %, marge 49.7 pts
+Bus 10 [OK] : 12 courses, 157.6 km, 125.5 kWh, SoC final 64.1 %, SoC min 64.1 %, marge 54.1 pts
+Bus 11 [OK] : 12 courses, 157.4 km, 127.9 kWh, SoC final 63.5 %, SoC min 63.5 %, marge 53.5 pts
+
+Exports generes :
+- resume_global: C:\Users\Lorenzo\Documents\GitHub\AP_eBUS_P26\P26-Modélisation analyse technico\CODE PYTHON MODEL\outputs\flotte\scenario_1\heuliez_gx337_elec\2026_04_08_n1\resume_global.csv
+- resume_bus: C:\Users\Lorenzo\Documents\GitHub\AP_eBUS_P26\P26-Modélisation analyse technico\CODE PYTHON MODEL\outputs\flotte\scenario_1\heuliez_gx337_elec\2026_04_08_n1\resume_bus.csv
+- courses_affectees: C:\Users\Lorenzo\Documents\GitHub\AP_eBUS_P26\P26-Modélisation analyse technico\CODE PYTHON MODEL\outputs\flotte\scenario_1\heuliez_gx337_elec\2026_04_08_n1\courses_affectees.csv
+- profils_bus: C:\Users\Lorenzo\Documents\GitHub\AP_eBUS_P26\P26-Modélisation analyse technico\CODE PYTHON MODEL\outputs\flotte\scenario_1\heuliez_gx337_elec\2026_04_08_n1\profils_bus.csv
