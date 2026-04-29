@@ -1,0 +1,4 @@
+stop_id,stop_name,stop_lat,stop_lon
+S1,Depot Ligne,49.4140,2.8230
+S2,Centre,49.4170,2.8260
+S3,Terminus,49.4200,2.8310

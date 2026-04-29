@@ -62,6 +62,7 @@ class ConfigurationRecharge:
     duree_recharge_terminus_s: float = 3 * 60.0
     duree_recharge_intermediaire_s: float = 30.0
     points_recharge_intermediaire: tuple[int, ...] = (10, 22)
+    smart_charging: bool = False  # Ajout de l'option par défaut
 
 
 @dataclass(frozen=True)
@@ -201,6 +202,7 @@ def construire_configuration_depuis_arguments(
     configuration_recharge = replace(
         configuration.recharge,
         scenario=arguments.scenario,
+        smart_charging=getattr(arguments, "smart_charging", True),
         puissance_borne_depot_kw=(
             arguments.puissance_borne_depot_kw
             if getattr(arguments, "puissance_borne_depot_kw", None) is not None

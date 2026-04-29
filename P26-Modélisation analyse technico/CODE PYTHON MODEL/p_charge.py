@@ -8,7 +8,7 @@ def calculer_puissance_charge_depot(
     puissance_borne_max_kw: float,
 ) -> float:
     """
-    Calcule la puissance de charge nécessaire au dépôt.
+    Calcule la puissance de charge necessaire au depot.
 
     Parameters
     ----------
@@ -21,13 +21,22 @@ def calculer_puissance_charge_depot(
     -------
     Pcharge : puissance de charge (kW)
     """
-    Pcharge = min(
-        (1 - soc_initial) * capacite_batterie_kwh / duree_disponible_h,
-        puissance_borne_max_kw,
-    )
-    Pcharge = math.ceil(Pcharge + 1)
-    Pcharge = 1.01 * Pcharge
-    return Pcharge
+
+    if capacite_batterie_kwh <= 0:
+        raise ValueError("La capacite de batterie doit etre strictement positive.")
+    if puissance_borne_max_kw < 0:
+        raise ValueError("La puissance maximale de borne ne peut pas etre negative.")
+    if duree_disponible_h <= 0 or puissance_borne_max_kw == 0:
+        return 0.0
+
+    soc_borne = min(max(float(soc_initial), 0.0), 1.0)
+    energie_a_recharger_kwh = (1.0 - soc_borne) * capacite_batterie_kwh
+    if energie_a_recharger_kwh <= 0:
+        return 0.0
+
+    puissance_requise_kw = energie_a_recharger_kwh / duree_disponible_h
+    puissance_avec_marge_kw = math.ceil(puissance_requise_kw + 1.0) * 1.01
+    return min(puissance_avec_marge_kw, float(puissance_borne_max_kw))
 
 
 def p_charge(SoCi: float, Eb: float, TimeDifference: float, Pterminal: float) -> float:
