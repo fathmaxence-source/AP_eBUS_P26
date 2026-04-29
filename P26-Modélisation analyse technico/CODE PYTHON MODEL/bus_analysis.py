@@ -77,6 +77,7 @@ def build_full_day_profile(
     battery_capacity_kwh: float,
     service_start_time: pd.Timestamp,
     terminal_power_kw: float,
+    smart_charging: bool = True  # Nouveau paramètre
 ) -> tuple[pd.DataFrame, dict[str, float | pd.Timestamp]]:
     service_profile = realtime_profile.copy()
     service_profile["Phase"] = "service"
@@ -84,16 +85,28 @@ def build_full_day_profile(
     service_end_time = service_profile["TimeHour"].iloc[-1]
     soc_end_pct = float(service_profile["SoC"].iloc[-1])
     soc_end_fraction = soc_end_pct / 100.0
+    
     charge_window_h, next_start_time = compute_charge_window_hours(
         service_start_time,
         service_end_time,
     )
-    pcharge_kw = calculer_puissance_charge_depot(
-        soc_initial=soc_end_fraction,
-        capacite_batterie_kwh=battery_capacity_kwh,
-        duree_disponible_h=charge_window_h,
-        puissance_borne_max_kw=terminal_power_kw,
-    )
+
+    # Logique de choix de la puissance
+    if smart_charging:
+        # Calcule la puissance minimale nécessaire pour être à 100% au prochain service
+        pcharge_kw = calculer_puissance_charge_depot(
+            soc_initial=soc_end_fraction,
+            capacite_batterie_kwh=battery_capacity_kwh,
+            duree_disponible_h=charge_window_h,
+            puissance_borne_max_kw=terminal_power_kw,
+        )
+    else:
+        # Utilise la puissance maximale de la borne
+        pcharge_kw = terminal_power_kw
+
+    # Le reste du code (la boucle de simulation minute par minute) reste identique
+    # car elle gère déjà l'arrêt automatique une fois les 100% de SoC atteints.
+    # ... (suite du code build_full_day_profile)
 
     charge_times = pd.date_range(start=service_end_time, end=next_start_time, freq="min")
     if len(charge_times) <= 1:

@@ -114,6 +114,7 @@ def executer_simulation(
         battery_capacity_kwh=capacite_batterie_kwh,
         service_start_time=debut_service,
         terminal_power_kw=configuration_simulation.recharge.puissance_borne_depot_kw,
+        smart_charging=configuration_simulation.recharge.smart_charging  # Passage du paramètre
     )
 
     dossier_sortie = construire_dossier_sortie(
@@ -250,3 +251,5 @@ def afficher_resume_simulation_console(
 
     for ligne in construire_lignes_resume_simulation(resultat_simulation):
         print(ligne)
+        
+

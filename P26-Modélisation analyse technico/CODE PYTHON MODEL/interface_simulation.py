@@ -131,6 +131,10 @@ class InterfaceSimulationP26:
             value=CONFIGURATION_PAR_DEFAUT.gtfs.include_depot_deadhead
         )
         self.var_afficher_graphiques = tk.BooleanVar(value=True)
+<<<<<<< Updated upstream
+=======
+        self.var_smart_charging = tk.BooleanVar(value=True)
+>>>>>>> Stashed changes
         self.var_resume_modele = tk.StringVar(value="")
         self.var_resume_mode_execution = tk.StringVar(value="")
 
@@ -462,10 +466,16 @@ class InterfaceSimulationP26:
                 textvariable=self.var_puissance_borne_depot,
                 width=22,
             ),
-        )
         self._ajouter_ligne(
             carte_recharge,
             2,
+            "Optimiser puissance",
+            ttk.Checkbutton(carte_recharge, variable=self.var_smart_charging)
+            )
+        )
+        self._ajouter_ligne(
+            carte_recharge,
+            3,
             "Borne terminus (kW)",
             ttk.Entry(
                 carte_recharge,
@@ -475,7 +485,7 @@ class InterfaceSimulationP26:
         )
         self._ajouter_ligne(
             carte_recharge,
-            3,
+            4,
             "Borne intermediaire (kW)",
             ttk.Entry(
                 carte_recharge,
@@ -485,13 +495,13 @@ class InterfaceSimulationP26:
         )
         self._ajouter_ligne(
             carte_recharge,
-            4,
+            5,
             "Seuil alerte SoC (%)",
             ttk.Entry(carte_recharge, textvariable=self.var_seuil_alerte, width=22),
         )
         self._ajouter_ligne(
             carte_recharge,
-            5,
+            6,
             "Seuil echec SoC (%)",
             ttk.Entry(carte_recharge, textvariable=self.var_seuil_echec, width=22),
         )
@@ -666,6 +676,7 @@ class InterfaceSimulationP26:
 
         arguments = argparse.Namespace(
             scenario=self._lire_entier(self.var_scenario.get(), "Le scenario"),
+            smart_charging=self.var_smart_charging.get(),
             bus_model=self.var_modele_bus.get(),
             data_mode=self.var_mode_donnees.get(),
             gtfs_path=gtfs_path,
