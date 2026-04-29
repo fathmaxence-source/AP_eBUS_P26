@@ -114,6 +114,7 @@ def executer_simulation(
         battery_capacity_kwh=capacite_batterie_kwh,
         service_start_time=debut_service,
         terminal_power_kw=configuration_simulation.recharge.puissance_borne_depot_kw,
+        smart_charging=configuration_simulation.recharge.smart_charging,
     )
 
     dossier_sortie = construire_dossier_sortie(
@@ -210,6 +211,8 @@ def construire_lignes_resume_simulation(
         f"Distance    : {profil_temps_reel['CumulativeDistance_km'].iloc[-1]:.2f} km",
         f"Energie     : {profil_temps_reel['EnergyUsed_kWh'].sum():.2f} kWh",
         f"SoC final   : {tableau_parcours['SoC'].iloc[-1]:.2f} %",
+        "Recharge    : "
+        f"{'optimisee' if metadonnees_charge.get('mode_recharge') == 'optimise' else 'borne max'}",
         f"Charge soir : {metadonnees_charge['charge_power_kw']:.2f} kW",
         f"Borne depot : {configuration.recharge.puissance_borne_depot_kw:.2f} kW",
         "Fin charge  : "

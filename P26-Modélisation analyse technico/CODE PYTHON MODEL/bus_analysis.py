@@ -77,6 +77,7 @@ def build_full_day_profile(
     battery_capacity_kwh: float,
     service_start_time: pd.Timestamp,
     terminal_power_kw: float,
+    smart_charging: bool = True,
 ) -> tuple[pd.DataFrame, dict[str, float | pd.Timestamp]]:
     service_profile = realtime_profile.copy()
     service_profile["Phase"] = "service"
@@ -88,12 +89,15 @@ def build_full_day_profile(
         service_start_time,
         service_end_time,
     )
-    pcharge_kw = calculer_puissance_charge_depot(
-        soc_initial=soc_end_fraction,
-        capacite_batterie_kwh=battery_capacity_kwh,
-        duree_disponible_h=charge_window_h,
-        puissance_borne_max_kw=terminal_power_kw,
-    )
+    if smart_charging:
+        pcharge_kw = calculer_puissance_charge_depot(
+            soc_initial=soc_end_fraction,
+            capacite_batterie_kwh=battery_capacity_kwh,
+            duree_disponible_h=charge_window_h,
+            puissance_borne_max_kw=terminal_power_kw,
+        )
+    else:
+        pcharge_kw = float(terminal_power_kw)
 
     charge_times = pd.date_range(start=service_end_time, end=next_start_time, freq="min")
     if len(charge_times) <= 1:
@@ -103,6 +107,7 @@ def build_full_day_profile(
             "service_end_time": service_end_time,
             "next_start_time": next_start_time,
             "actual_charge_end_time": service_end_time,
+            "mode_recharge": "optimise" if smart_charging else "borne_max",
         }
         return service_profile, metadata
 
@@ -167,6 +172,7 @@ def build_full_day_profile(
         "service_end_time": service_end_time,
         "next_start_time": next_start_time,
         "actual_charge_end_time": actual_charge_end_time,
+        "mode_recharge": "optimise" if smart_charging else "borne_max",
     }
     return full_day_profile, metadata
 

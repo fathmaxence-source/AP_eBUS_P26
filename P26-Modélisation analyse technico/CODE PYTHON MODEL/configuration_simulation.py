@@ -56,6 +56,7 @@ class ConfigurationRecharge:
     """
 
     scenario: int = 1
+    smart_charging: bool = True
     puissance_borne_depot_kw: float = 150.0
     puissance_borne_terminus_kw: float = 100.0
     puissance_borne_intermediaire_kw: float = 50.0
@@ -201,6 +202,11 @@ def construire_configuration_depuis_arguments(
     configuration_recharge = replace(
         configuration.recharge,
         scenario=arguments.scenario,
+        smart_charging=getattr(
+            arguments,
+            "smart_charging",
+            configuration.recharge.smart_charging,
+        ),
         puissance_borne_depot_kw=(
             arguments.puissance_borne_depot_kw
             if getattr(arguments, "puissance_borne_depot_kw", None) is not None
