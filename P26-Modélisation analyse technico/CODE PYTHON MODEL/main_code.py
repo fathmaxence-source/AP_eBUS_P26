@@ -10,6 +10,7 @@ interface graphique, ou via un premier apercu de flotte.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from bus_models import list_bus_models
 from configuration_simulation import (
@@ -17,7 +18,6 @@ from configuration_simulation import (
     construire_configuration_depuis_arguments,
     construire_configuration_simulation_par_defaut,
 )
-from gtfs_data import charger_courses_reelles_journalieres
 from service_simulation import (
     afficher_resume_simulation_console,
     executer_simulation,
@@ -48,7 +48,21 @@ def construire_parseur_arguments() -> argparse.ArgumentParser:
     parser.add_argument(
         "--apercu-flotte",
         action="store_true",
-        help="Affiche un premier apercu de flotte a partir du service GTFS reel.",
+        help=(
+            "Simule la flotte bus par bus a partir du service GTFS reel "
+            "sans encore gerer les conflits de recharge."
+        ),
+    )
+    parser.add_argument(
+        "--export-flotte",
+        action="store_true",
+        help="Exporte les resultats de la simulation flotte en CSV et resume texte.",
+    )
+    parser.add_argument(
+        "--dossier-export-flotte",
+        type=str,
+        default=None,
+        help="Dossier de sortie optionnel pour les exports de flotte.",
     )
     parser.add_argument(
         "--scenario",
@@ -154,12 +168,13 @@ def lancer_mode_console(arguments: argparse.Namespace) -> None:
 
 def lancer_apercu_flotte(arguments: argparse.Namespace) -> None:
     """
-    Affiche un premier dimensionnement de flotte a partir des departs reels.
+    Affiche une premiere simulation flotte a partir des departs reels.
     """
 
-    from flotte_exploitation import (
-        affecter_courses_aux_bus,
-        construire_lignes_resume_flotte,
+    from service_flotte import (
+        construire_lignes_resume_simulation_flotte,
+        executer_simulation_flotte,
+        exporter_resultats_flotte,
     )
 
     arguments_configuration = vars(arguments).copy()
@@ -168,17 +183,26 @@ def lancer_apercu_flotte(arguments: argparse.Namespace) -> None:
         argparse.Namespace(**arguments_configuration)
     )
 
-    courses, metadonnees_service = charger_courses_reelles_journalieres(
-        configuration_simulation.gtfs
-    )
-    resultat_affectation = affecter_courses_aux_bus(
-        courses=courses,
+    resultat_flotte = executer_simulation_flotte(
+        configuration_simulation=configuration_simulation,
         temps_battement_s=arguments.temps_battement_s,
     )
 
-    for ligne in construire_lignes_resume_flotte(
-        resultat_affectation=resultat_affectation,
-        metadonnees_service=metadonnees_service,
+    chemins_exports = None
+    if arguments.export_flotte:
+        dossier_sortie = (
+            Path(arguments.dossier_export_flotte)
+            if arguments.dossier_export_flotte
+            else None
+        )
+        chemins_exports = exporter_resultats_flotte(
+            resultat_flotte,
+            dossier_sortie=dossier_sortie,
+        )
+
+    for ligne in construire_lignes_resume_simulation_flotte(
+        resultat_flotte,
+        chemins_exports=chemins_exports,
     ):
         print(ligne)
 

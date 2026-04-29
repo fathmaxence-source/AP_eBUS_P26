@@ -136,6 +136,17 @@ def _build_trip_rows(
         if segment_time_s <= 0:
             continue
 
+        if start_stop_time["stop_id"] not in stops_index:
+            raise ValueError(
+                "Le GTFS reference un arret de depart absent de stops.txt : "
+                f"{start_stop_time['stop_id']}."
+            )
+        if end_stop_time["stop_id"] not in stops_index:
+            raise ValueError(
+                "Le GTFS reference un arret d'arrivee absent de stops.txt : "
+                f"{end_stop_time['stop_id']}."
+            )
+
         start_stop = stops_index[start_stop_time["stop_id"]]
         end_stop = stops_index[end_stop_time["stop_id"]]
         distance_m = _compute_distance_m(start_stop_time, end_stop_time, start_stop, end_stop)
@@ -246,14 +257,11 @@ def _construire_resume_course(
     }
 
 
-def charger_courses_reelles_journalieres(
+def _charger_contexte_courses_reelles(
     config: GTFSBusConfig,
-) -> tuple[pd.DataFrame, dict[str, Any]]:
+) -> dict[str, Any]:
     """
-    Extrait toutes les courses GTFS actives pour une ligne sur une date donnee.
-
-    Cette fonction sert de base a la future affectation de flotte : elle
-    reconstruit le service reel du jour, trie par heure de depart.
+    Charge le contexte commun des courses reelles d'une journee.
     """
 
     search_root = _resolve_search_root(config.search_root)
@@ -309,19 +317,6 @@ def charger_courses_reelles_journalieres(
         for route in feed.get("routes", [])
     }
     route = routes.get(resolved_route_id or "", {})
-    courses = pd.DataFrame(
-        [
-            _construire_resume_course(
-                trip=trip,
-                trip_stop_times=stop_times_index[trip["trip_id"]],
-                stops_index=stops_index,
-                service_date=config.service_date,
-            )
-            for trip in trips_ordonnes
-        ]
-    )
-    courses["CourseIndex"] = range(1, len(courses) + 1)
-
     metadata = {
         "gtfs_dir": str(gtfs_dir),
         "service_date": config.service_date,
@@ -335,7 +330,101 @@ def charger_courses_reelles_journalieres(
             len(ids_services_actifs) if ids_services_actifs is not None else None
         ),
     }
-    return courses, metadata
+    return {
+        "gtfs_dir": gtfs_dir,
+        "feed": feed,
+        "stop_times_index": stop_times_index,
+        "stops_index": stops_index,
+        "trips_ordonnes": trips_ordonnes,
+        "metadata": metadata,
+    }
+
+
+def charger_courses_reelles_journalieres(
+    config: GTFSBusConfig,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """
+    Extrait toutes les courses GTFS actives pour une ligne sur une date donnee.
+
+    Cette fonction sert de base a la future affectation de flotte : elle
+    reconstruit le service reel du jour, trie par heure de depart.
+    """
+
+    contexte = _charger_contexte_courses_reelles(config)
+    stop_times_index = contexte["stop_times_index"]
+    stops_index = contexte["stops_index"]
+    trips_ordonnes = contexte["trips_ordonnes"]
+    courses = pd.DataFrame(
+        [
+            _construire_resume_course(
+                trip=trip,
+                trip_stop_times=stop_times_index[trip["trip_id"]],
+                stops_index=stops_index,
+                service_date=config.service_date,
+            )
+            for trip in trips_ordonnes
+        ]
+    )
+    courses["CourseIndex"] = range(1, len(courses) + 1)
+    return courses, contexte["metadata"]
+
+
+def charger_courses_et_segments_reels_journaliers(
+    config: GTFSBusConfig,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+    """
+    Extrait les courses reelles et les segments GTFS associes.
+
+    Les segments sont la base de la simulation energetique flotte : chaque
+    course conserve son CourseIndex pour etre rattachee au bus affecte.
+    """
+
+    contexte = _charger_contexte_courses_reelles(config)
+    stop_times_index = contexte["stop_times_index"]
+    stops_index = contexte["stops_index"]
+    trips_ordonnes = contexte["trips_ordonnes"]
+
+    lignes_courses: list[dict[str, Any]] = []
+    lignes_segments: list[dict[str, Any]] = []
+
+    for course_index, trip in enumerate(trips_ordonnes, start=1):
+        trip_stop_times = stop_times_index[trip["trip_id"]]
+        resume_course = _construire_resume_course(
+            trip=trip,
+            trip_stop_times=trip_stop_times,
+            stops_index=stops_index,
+            service_date=config.service_date,
+        )
+        resume_course["CourseIndex"] = course_index
+        lignes_courses.append(resume_course)
+
+        segments_course = _build_trip_rows(
+            trip=trip,
+            trip_stop_times=trip_stop_times,
+            stops_index=stops_index,
+            default_stop_duration_s=0.0,
+        )
+        for segment_index, segment in enumerate(segments_course, start=1):
+            ligne_segment = segment.copy()
+            ligne_segment["CourseIndex"] = course_index
+            ligne_segment["SegmentIndex"] = segment_index
+            ligne_segment["RouteID"] = trip.get("route_id", "")
+            ligne_segment["ServiceID"] = trip.get("service_id", "")
+            ligne_segment["DirectionID"] = trip.get("direction_id", "")
+            ligne_segment["CourseDepartureSeconds"] = trip_stop_times[0][
+                "departure_seconds"
+            ]
+            ligne_segment["CourseArrivalSeconds"] = trip_stop_times[-1][
+                "arrival_seconds"
+            ]
+            lignes_segments.append(ligne_segment)
+
+    courses = pd.DataFrame(lignes_courses)
+    segments = pd.DataFrame(lignes_segments)
+    if segments.empty:
+        raise ValueError("Les courses GTFS retenues ne contiennent aucun segment.")
+    segments["GlobalSegmentIndex"] = range(1, len(segments) + 1)
+    return courses, segments, contexte["metadata"]
 
 
 def _build_depot_deadhead_row(

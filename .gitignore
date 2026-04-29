@@ -1,0 +1,22 @@
+# Environnements Python locaux
+.venv/
+.venv-interface/
+venv/
+env/
+
+# Configuration locale d'editeur avec chemins personnels
+.vscode/
+
+# Fichiers Python generes
+__pycache__/
+*.py[cod]
+
+# Caches et sorties regenerables
+.cache/
+.cache_online_gtfs/
+outputs/
+
+# Fichiers systeme
+Thumbs.db
+Desktop.ini
+.DS_Store
