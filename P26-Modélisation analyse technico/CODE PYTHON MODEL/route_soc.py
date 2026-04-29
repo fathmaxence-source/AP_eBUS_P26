@@ -7,6 +7,19 @@ from bus_models import BusModel, LEGACY_BUS_MODEL
 from configuration_simulation import ConfigurationAlertesBatterie
 
 
+def _verifier_colonnes_soc(tabl: pd.DataFrame) -> None:
+    colonnes_requises = {"Power", "deltaT"}
+    colonnes_manquantes = sorted(colonnes_requises.difference(tabl.columns))
+    if colonnes_manquantes:
+        raise ValueError(
+            "Le tableau de parcours ne contient pas les colonnes requises "
+            "pour le calcul du SoC : "
+            + ", ".join(colonnes_manquantes)
+        )
+    if (tabl["deltaT"] < 0).any():
+        raise ValueError("La colonne deltaT ne peut pas contenir de durees negatives.")
+
+
 def calculer_soc_parcours(
     tabl: pd.DataFrame,
     bus_model: BusModel | None = None,
@@ -16,17 +29,32 @@ def calculer_soc_parcours(
     """
 
     model = bus_model or LEGACY_BUS_MODEL
+    _verifier_colonnes_soc(tabl)
     initial_soc_pct = 100.0
+
+    battery_capacity_kwh = model.battery_capacity_kwh
+    if battery_capacity_kwh <= 0:
+        raise ValueError("La capacite de batterie doit etre strictement positive.")
+
+    tabl = tabl.copy()
+    if "PowerC" not in tabl.columns:
+        tabl["PowerC"] = 0.0
 
     discharge_energy_kwh = (tabl["Power"] * tabl["deltaT"]) / 3.6e6
     charge_energy_kwh = (tabl["PowerC"] * tabl["deltaT"]) / 3.6e6
+    delta_soc_pct = (
+        (-discharge_energy_kwh + charge_energy_kwh) / battery_capacity_kwh
+    ) * 100.0
 
-    battery_capacity_kwh = model.battery_capacity_kwh
-    delta_soc = (-discharge_energy_kwh + charge_energy_kwh) / battery_capacity_kwh
-    cumulative_soc_pct = np.cumsum(delta_soc) * 100.0
+    soc_values: list[float] = []
+    soc_courant = initial_soc_pct
+    for delta_soc in delta_soc_pct:
+        # On plafonne uniquement la recharge a 100 %. Les valeurs negatives
+        # restent visibles pour detecter les trajets impossibles.
+        soc_courant = min(100.0, soc_courant + float(delta_soc))
+        soc_values.append(soc_courant)
 
-    tabl = tabl.copy()
-    tabl["SoC"] = cumulative_soc_pct + initial_soc_pct
+    tabl["SoC"] = np.asarray(soc_values)
     tabl["BatteryCapacity_kWh"] = battery_capacity_kwh
 
     return tabl, battery_capacity_kwh
